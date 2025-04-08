@@ -8,7 +8,7 @@ st.set_page_config(
     page_title="DocGenius Lite",
     page_icon="📄",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 # Custom CSS
@@ -123,9 +123,14 @@ def apply_custom_css():
         border-top: 1px solid var(--medium-green);
     }
     
-    /* Sidebar override */
+    /* Hide sidebar completely */
     [data-testid="stSidebar"] {
-        background-color: var(--medium-green);
+        display: none !important;
+    }
+    
+    /* Ensure main content takes full width */
+    [data-testid="stAppViewContainer"] > section:first-child {
+        width: 100% !important;
     }
     </style>
     """, unsafe_allow_html=True)

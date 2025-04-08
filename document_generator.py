@@ -3,6 +3,7 @@ import json
 import datetime
 import tempfile
 from weasyprint import HTML
+# Import python-docx properly
 from docx import Document
 from docx.shared import Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
