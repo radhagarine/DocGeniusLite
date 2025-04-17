@@ -1,140 +1,196 @@
 import os
-import psycopg2
-from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+import sqlite3
+from datetime import datetime
 
-# Database connection parameters from environment variables
-DB_HOST = os.getenv("PGHOST", "localhost")
-DB_NAME = os.getenv("PGDATABASE", "docgenius")
-DB_USER = os.getenv("PGUSER", "postgres")
-DB_PASSWORD = os.getenv("PGPASSWORD", "postgres")
-DB_PORT = os.getenv("PGPORT", "5432")
+# Database file path
+DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'docgenius.db')
 
 def get_db_connection():
-    """Create a connection to the PostgreSQL database"""
-    conn = psycopg2.connect(
-        host=DB_HOST,
-        database=DB_NAME,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        port=DB_PORT
-    )
+    """Create a connection to the SQLite database"""
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
     return conn
 
-def init_db():
-    """Initialize the database tables if they don't exist"""
+def upgrade_db():
+    """Upgrade database schema with new columns"""
     conn = get_db_connection()
-    conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
     cursor = conn.cursor()
     
-    # Create tables if they don't exist
-    create_tables_query = """
-    -- Users table
-    CREATE TABLE IF NOT EXISTS users (
-        id VARCHAR(36) PRIMARY KEY,
-        email VARCHAR(255) UNIQUE NOT NULL,
-        subscription VARCHAR(20) DEFAULT 'free',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-    
-    -- Documents table
-    CREATE TABLE IF NOT EXISTS documents (
-        id VARCHAR(36) PRIMARY KEY,
-        user_id VARCHAR(36) REFERENCES users(id),
-        doc_type VARCHAR(50) NOT NULL,
-        title VARCHAR(255) NOT NULL,
-        content TEXT,
-        parameters JSONB,
-        rai_score FLOAT,
-        rai_flags JSONB,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-    
-    -- Payments table
-    CREATE TABLE IF NOT EXISTS payments (
-        id VARCHAR(36) PRIMARY KEY,
-        user_id VARCHAR(36) REFERENCES users(id),
-        amount DECIMAL(10, 2) NOT NULL,
-        currency VARCHAR(3) DEFAULT 'USD',
-        payment_type VARCHAR(20) NOT NULL,
-        document_id VARCHAR(36) REFERENCES documents(id),
-        status VARCHAR(20) DEFAULT 'pending',
-        stripe_payment_id VARCHAR(255),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-    
-    -- Document templates table (admin only)
-    CREATE TABLE IF NOT EXISTS templates (
-        id VARCHAR(36) PRIMARY KEY,
-        doc_type VARCHAR(50) UNIQUE NOT NULL,
-        name VARCHAR(255) NOT NULL,
-        template TEXT NOT NULL,
-        parameters JSONB NOT NULL,
-        version INTEGER DEFAULT 1,
-        is_active BOOLEAN DEFAULT TRUE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-    
-    -- Feedback table
-    CREATE TABLE IF NOT EXISTS feedback (
-        id VARCHAR(36) PRIMARY KEY,
-        user_id VARCHAR(36) REFERENCES users(id),
-        document_id VARCHAR(36) REFERENCES documents(id),
-        rating INTEGER NOT NULL,
-        comments TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-    """
-    
-    cursor.execute(create_tables_query)
-    
-    # Check if we need to insert default templates
-    cursor.execute("SELECT COUNT(*) FROM templates")
-    template_count = cursor.fetchone()[0]
-    
-    if template_count == 0:
-        # Insert default templates (will be populated later with actual templates)
-        doc_types = [
-            "nda", 
-            "invoice", 
-            "letter_of_intent", 
-            "proposal", 
-            "scope_of_work"
-        ]
+    try:
+        # Start transaction
+        cursor.execute("BEGIN")
         
-        template_names = [
-            "Non-Disclosure Agreement", 
-            "Invoice", 
-            "Letter of Intent", 
-            "Business Proposal", 
-            "Scope of Work"
-        ]
+        # Check existing columns in users table
+        cursor.execute("PRAGMA table_info(users)")
+        columns = {column[1] for column in cursor.fetchall()}
         
-        for i, doc_type in enumerate(doc_types):
-            cursor.execute(
-                """
-                INSERT INTO templates (id, doc_type, name, template, parameters, version)
-                VALUES (gen_random_uuid(), %s, %s, %s, %s, 1)
-                """,
-                (
-                    doc_type, 
-                    template_names[i], 
-                    f"Default template for {template_names[i]}", 
-                    '{}'  # Empty JSON for now
-                )
+        # Add name column if it doesn't exist
+        if 'name' not in columns:
+            cursor.execute("""
+                ALTER TABLE users 
+                ADD COLUMN name TEXT DEFAULT 'User'
+            """)
+        
+        # Add password_hash column if it doesn't exist
+        if 'password_hash' not in columns:
+            cursor.execute("""
+                ALTER TABLE users 
+                ADD COLUMN password_hash TEXT
+            """)
+        
+        # Add ai_credits column if it doesn't exist
+        if 'ai_credits' not in columns:
+            cursor.execute("""
+                ALTER TABLE users 
+                ADD COLUMN ai_credits INTEGER DEFAULT 50
+            """)
+            
+            cursor.execute("""
+                ALTER TABLE users 
+                ADD COLUMN total_credits_used INTEGER DEFAULT 0
+            """)
+            
+            # Update existing users to have default credits
+            cursor.execute("""
+                UPDATE users 
+                SET ai_credits = 50,
+                    total_credits_used = 0 
+                WHERE ai_credits IS NULL
+            """)
+            
+        # Add onboarding fields if they don't exist
+        for field in ['onboarding_completed', 'industry', 'business_type', 'company_description',
+                      'company_name', 'team_size', 'doc_types', 'company_logo',
+                      'business_address', 'business_phone', 'business_email',
+                      'theme_preference', 'default_doc_type', 'notification_preferences']:
+            if field not in columns:
+                cursor.execute(f"""
+                    ALTER TABLE users 
+                    ADD COLUMN {field} TEXT
+                """)
+                
+        # Add updated_at column if it doesn't exist
+        if 'updated_at' not in columns:
+            cursor.execute("""
+                ALTER TABLE users 
+                ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            """)
+        
+        # Create credit_transactions table if it doesn't exist
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS credit_transactions (
+                id TEXT PRIMARY KEY,
+                user_id TEXT REFERENCES users(id),
+                amount INTEGER NOT NULL,
+                transaction_type TEXT NOT NULL,
+                document_id TEXT REFERENCES documents(id),
+                description TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
+        """)
+        
+        # Check if credits_used column exists in documents table
+        cursor.execute("PRAGMA table_info(documents)")
+        columns = {column[1] for column in cursor.fetchall()}
+        
+        if 'credits_used' not in columns:
+            cursor.execute("""
+                ALTER TABLE documents 
+                ADD COLUMN credits_used INTEGER DEFAULT 0
+            """)
+        
+        cursor.execute("COMMIT")
+        
+    except Exception as e:
+        cursor.execute("ROLLBACK")
+        raise e
+    finally:
+        cursor.close()
+        conn.close()
+
+def init_db():
+    """Initialize database with required tables"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
     
-    cursor.close()
-    conn.close()
+    try:
+        # Start transaction
+        cursor.execute("BEGIN")
+        
+        # Create users table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id TEXT PRIMARY KEY,
+                email TEXT UNIQUE NOT NULL,
+                name TEXT NOT NULL,
+                password_hash TEXT NOT NULL,
+                subscription TEXT DEFAULT 'free',
+                ai_credits INTEGER DEFAULT 50,
+                total_credits_used INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                onboarding_completed BOOLEAN DEFAULT FALSE,
+                industry TEXT,
+                business_type TEXT,
+                company_description TEXT,
+                company_name TEXT,
+                team_size TEXT,
+                doc_types TEXT,
+                company_logo TEXT,
+                business_address TEXT,
+                business_phone TEXT,
+                business_email TEXT,
+                theme_preference TEXT DEFAULT 'System',
+                default_doc_type TEXT DEFAULT 'nda',
+                notification_preferences TEXT
+            )
+        """)
+        
+        # Create industry_profiles table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS industry_profiles (
+                user_id TEXT PRIMARY KEY REFERENCES users(id),
+                industry TEXT NOT NULL,
+                company_size TEXT,
+                business_type TEXT,
+                target_market TEXT,
+                company_description TEXT,
+                document_preferences TEXT,
+                brand_colors TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # Create documents table if it doesn't exist
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS documents (
+                id TEXT PRIMARY KEY,
+                user_id TEXT REFERENCES users(id),
+                title TEXT NOT NULL,
+                content TEXT NOT NULL,
+                doc_type TEXT NOT NULL,
+                credits_used INTEGER DEFAULT 0,
+                status TEXT DEFAULT 'completed',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        cursor.execute("COMMIT")
+        
+    except Exception as e:
+        cursor.execute("ROLLBACK")
+        raise e
+    finally:
+        cursor.close()
+        conn.close()
 
 def get_document_templates():
     """Get all active document templates"""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT id, doc_type, name, parameters FROM templates WHERE is_active = TRUE"
+        "SELECT id, doc_type, name, parameters FROM templates WHERE is_active = 1"
     )
     templates = cursor.fetchall()
     cursor.close()
@@ -151,7 +207,7 @@ def save_document(user_id, doc_type, title, content, parameters, rai_score, rai_
         """
         INSERT INTO documents 
         (id, user_id, doc_type, title, content, parameters, rai_score, rai_flags)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         RETURNING id
         """,
         (doc_id, user_id, doc_type, title, content, parameters, rai_score, rai_flags)
@@ -174,10 +230,10 @@ def get_user_documents(user_id, limit=30):
         """
         SELECT id, doc_type, title, created_at, rai_score
         FROM documents
-        WHERE user_id = %s AND created_at >= CURRENT_DATE - INTERVAL %s DAY
+        WHERE user_id = ? AND created_at >= DATE('now', '-30 days')
         ORDER BY created_at DESC
         """,
-        (user_id, retention_days)
+        (user_id,)
     )
     
     documents = cursor.fetchall()
@@ -194,7 +250,7 @@ def get_document_by_id(doc_id, user_id):
         """
         SELECT id, doc_type, title, content, parameters, rai_score, rai_flags, created_at
         FROM documents
-        WHERE id = %s AND user_id = %s
+        WHERE id = ? AND user_id = ?
         """,
         (doc_id, user_id)
     )

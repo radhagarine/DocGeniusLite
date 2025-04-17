@@ -3,6 +3,9 @@ import bcrypt
 import json
 import os
 from datetime import datetime, timedelta
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from auth import create_jwt_token, verify_jwt_token  # Changed generate_jwt_token to create_jwt_token
 
 # File to store user data
 USER_DB_FILE = "utils/users.json"
@@ -61,8 +64,17 @@ def login_user(email, password):
     if not verify_password(password, users[email]["password"]):
         return False, "Invalid password"
     
-    # Set session state
-    st.session_state["authenticated"] = True
+    # Generate JWT token
+    token = create_jwt_token(
+        user_id=email,  # Using email as user_id for now
+        email=email,
+        subscription=users[email]["subscription"]
+    )
+    
+    # Set token in session state
+    st.session_state["token"] = token
+    
+    # Set other session state variables
     st.session_state["email"] = email
     st.session_state["name"] = users[email]["name"]
     st.session_state["subscription"] = users[email]["subscription"]
@@ -78,8 +90,17 @@ def logout():
             del st.session_state[key]
 
 def check_authentication():
-    """Check if a user is authenticated"""
-    return st.session_state.get("authenticated", False)
+    """Check if a user is authenticated by validating their JWT token"""
+    token = st.session_state.get("token")
+    if not token:
+        return False
+    
+    try:
+        # Validate the token
+        claims = verify_jwt_token(token)
+        return bool(claims)  # Returns True if token is valid
+    except:
+        return False
 
 def get_user_stats():
     """Get current user's statistics"""
@@ -108,4 +129,4 @@ def update_user_stats(email, stats):
         # Update session state
         for key, value in stats.items():
             if key in ["total_docs", "free_docs_used", "subscription"]:
-                st.session_state[key] = value 
+                st.session_state[key] = value

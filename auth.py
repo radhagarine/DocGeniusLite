@@ -1,76 +1,407 @@
 import streamlit as st
+import bcrypt
 import jwt
-import datetime
-import os
+from datetime import datetime, timedelta
 import uuid
 from db import get_db_connection
 
-# Secret key for JWT (in production, this would be an environment variable)
-JWT_SECRET = os.getenv("JWT_SECRET", "docgenius_lite_secret_key")
+# JWT configuration
+JWT_SECRET = "your-secret-key"  # In production, use environment variable
 JWT_ALGORITHM = "HS256"
-SESSION_EXPIRY_DAYS = 7
+JWT_EXPIRATION_HOURS = 24
 
-def generate_jwt_token(user_id, email, subscription="free"):
-    """Generate a JWT token for authenticated users"""
-    payload = {
-        "user_id": user_id,
-        "email": email,
-        "subscription": subscription,
-        "exp": datetime.datetime.utcnow() + datetime.timedelta(days=SESSION_EXPIRY_DAYS)
-    }
-    token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
-    return token
+def init_user_db():
+    """Initialize the user database if it doesn't exist"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Create users table if it doesn't exist (moved to db.py init_db())
+    cursor.close()
+    conn.close()
+
+def hash_password(password):
+    """Hash a password using bcrypt"""
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+def verify_password(password, hashed):
+    """Verify a password against its hash"""
+    return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+
+def create_jwt_token(user_id, email):
+    """Create a JWT token for a user"""
+    expiration = datetime.utcnow() + timedelta(hours=JWT_EXPIRATION_HOURS)
+    return jwt.encode(
+        {
+            "user_id": user_id,
+            "email": email,
+            "exp": expiration
+        },
+        JWT_SECRET,
+        algorithm=JWT_ALGORITHM
+    )
 
 def verify_jwt_token(token):
     """Verify a JWT token"""
     try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        return payload
-    except jwt.ExpiredSignatureError:
-        return None
-    except jwt.InvalidTokenError:
+        return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except:
         return None
 
-def check_authentication():
-    """Check if the user is authenticated"""
-    if 'token' not in st.session_state:
-        return False
-    
-    payload = verify_jwt_token(st.session_state['token'])
-    if not payload:
-        return False
-    
-    # Set session variables from token
-    st.session_state['user_id'] = payload['user_id']
-    st.session_state['email'] = payload['email']
-    st.session_state['subscription'] = payload['subscription']
-    
-    # Get usage info from database
+def register_user(email, password, name):
+    """Register a new user"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Get current month's document count
-    current_month = datetime.datetime.now().strftime('%Y-%m')
-    cursor.execute(
-        """
-        SELECT COUNT(*) FROM documents 
-        WHERE user_id = %s AND created_at >= %s::date
-        """, 
-        (st.session_state['user_id'], f"{current_month}-01")
-    )
-    st.session_state['free_docs_used'] = cursor.fetchone()[0]
+    try:
+        # Check if user exists
+        cursor.execute("SELECT email FROM users WHERE email = ?", (email,))
+        if cursor.fetchone():
+            return False, "Email already registered"
+        
+        # Create new user with default credits
+        user_id = str(uuid.uuid4())
+        hashed_password = hash_password(password)
+        
+        cursor.execute(
+            """
+            INSERT INTO users (id, email, name, password_hash, subscription, ai_credits, total_credits_used)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (user_id, email, name, hashed_password, 'free', 50, 0)
+        )
+        
+        conn.commit()
+        
+        # Create and store session
+        token = create_jwt_token(user_id, email)
+        st.session_state["token"] = token
+        st.session_state["authenticated"] = True
+        st.session_state["user_id"] = user_id
+        st.session_state["email"] = email
+        st.session_state["name"] = name
+        st.session_state["subscription"] = "free"
+        st.session_state["ai_credits"] = 50
+        st.session_state["total_credits_used"] = 0
+        
+        return True, "Registration successful"
+        
+    except Exception as e:
+        return False, str(e)
+    finally:
+        cursor.close()
+        conn.close()
+
+def login_user(email, password):
+    """Login a user with improved error handling"""
+    if not email or not password:
+        return False, "Email and password are required"
+        
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
+        user = cursor.fetchone()
+        
+        if not user:
+            return False, "Email not found"
+            
+        if not verify_password(password, user['password_hash']):
+            return False, "Invalid password"
+            
+        # Set session state with all user data with all user data
+        st.session_state.user_id = user['id']
+        st.session_state.user_email = user['email']
+        st.session_state.email = user['email']  # Add both versions for compatibilityemail = user['email']  # Add both versions for compatibility
+        st.session_state.user_name = user['name']
+        st.session_state.name = user['name']  # Add both versions for compatibility
+        st.session_state.credits = user['ai_credits']
+        st.session_state.ai_credits = user['ai_credits']
+        st.session_state.subscription = user['subscription']
+        st.session_state.total_credits_used = user['total_credits_used']
+        st.session_state.onboarding_completed = bool(user['onboarding_completed'])
+        st.session_state.authenticated = True
+        
+        # Load all onboarding data into session state
+        for field in ['industry', 'business_type', 'company_description', 'company_name',
+                     'team_size', 'doc_types', 'company_logo', 'business_address',
+                     'business_phone', 'business_email']:
+            if field in user and user[field]:
+                st.session_state[field] = user[field]
+        st.session_state.user_name = user['name']
+        st.session_state.name = user['name']  # Add both versions for compatibility
+        st.session_state.credits = user['ai_credits']
+        st.session_state.ai_credits = user['ai_credits']
+        st.session_state.subscription = user['subscription']
+        st.session_state.total_credits_used = user['total_credits_used']
+        st.session_state.onboarding_completed = bool(user['onboarding_completed'])
+        st.session_state.authenticated = True
+        
+        # Load all onboarding data into session state
+        for field in ['industry', 'business_type', 'company_description', 'company_name',
+                     'team_size', 'doc_types', 'company_logo', 'business_address',
+                     'business_phone', 'business_email']:
+            if field in user and user[field]:
+                st.session_state[field] = user[field]
+        
+        # Create and set JWT token
+        token = create_jwt_token(user['id'], user['email'])
+        st.session_state.token = token
+        
+        return True, "Login successful"
+    except Exception as e:
+        return False, f"Login error: {str(e)}"
+    finally:
+        cursor.close()
+        conn.close()
+
+def logout():
+    """Log out the user by clearing the session state"""
+    for key in list(st.session_state.keys()):
+        del st.session_state[key]
+
+def check_authentication():
+    """Check if a user is authenticated"""
+    if not st.session_state.get("authenticated"):
+        return False
     
-    # Get total document count
-    cursor.execute(
-        "SELECT COUNT(*) FROM documents WHERE user_id = %s", 
-        (st.session_state['user_id'],)
-    )
-    st.session_state['total_docs'] = cursor.fetchone()[0]
+    token = st.session_state.get("token")
+    if not token:
+        return False
     
-    cursor.close()
-    conn.close()
+    claims = verify_jwt_token(token)
+    if not claims:
+        logout()
+        return False
     
     return True
+
+def get_user_info():
+    """Get current user's information"""
+    if not check_authentication():
+        return None
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute(
+            """
+            SELECT id, email, name, subscription, ai_credits, total_credits_used,
+                   industry, business_type, company_description, company_name,
+                   team_size, doc_types, company_logo, business_address,
+                   business_phone, business_email, onboarding_completed
+            FROM users WHERE id = ?
+            """,
+            (st.session_state["user_id"],)
+        )
+        user = cursor.fetchone()
+        
+        if not user:
+            return None
+            
+        # Return all user fields
+        user_data = {}
+        for key in user.keys():
+            user_data[key] = user[key]
+        return user_data
+    finally:
+        cursor.close()
+        conn.close()
+
+def get_user_stats():
+    """Get current user's statistics"""
+    if not check_authentication():
+        return None
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute(
+            """
+            SELECT email, name, subscription, ai_credits, total_credits_used
+            FROM users WHERE id = ?
+            """,
+            (st.session_state["user_id"],)
+        )
+        user = cursor.fetchone()
+        
+        if not user:
+            return None
+        
+        # Get document count
+        cursor.execute(
+            """
+            SELECT COUNT(*) as doc_count
+            FROM documents 
+            WHERE user_id = ? AND created_at >= DATE('now', '-30 days')
+            """,
+            (st.session_state["user_id"],)
+        )
+        doc_count = cursor.fetchone()['doc_count']
+        
+        return {
+            "email": user['email'],
+            "name": user['name'],
+            "subscription": user['subscription'],
+            "ai_credits": user['ai_credits'],
+            "total_credits_used": user['total_credits_used'],
+            "total_docs": doc_count
+        }
+    finally:
+        cursor.close()
+        conn.close()
+
+def update_user_stats(user_id, stats):
+    """Update user statistics"""
+    if not user_id:
+        return False
+        
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Start transaction
+        cursor.execute("BEGIN")
+        
+        # Build update query dynamically based on provided stats
+        valid_fields = {
+            "subscription", "ai_credits", "total_credits_used"
+        }
+        
+        updates = []
+        params = []
+        for key, value in stats.items():
+            if key in valid_fields:
+                updates.append(f"{key} = ?")
+                params.append(value)
+        
+        if not updates:
+            return False
+            
+        # Add user_id to params
+        params.append(user_id)
+        
+        # Execute update
+        cursor.execute(
+            f"""
+            UPDATE users 
+            SET {', '.join(updates)}
+            WHERE id = ?
+            """,
+            params
+        )
+        
+        # Update session state
+        for key, value in stats.items():
+            if key in valid_fields:
+                st.session_state[key] = value
+        
+        cursor.execute("COMMIT")
+        return True
+        
+    except Exception as e:
+        cursor.execute("ROLLBACK")
+        return False
+    finally:
+        cursor.close()
+        conn.close()
+
+def update_user_info(user_id, data):
+    """Update user information"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Build the update query dynamically based on provided fields
+        update_fields = []
+        values = []
+        
+        valid_fields = [
+            'name', 'subscription', 'ai_credits', 'total_credits_used',
+            'industry', 'business_type', 'company_description',
+            'company_name', 'team_size', 'doc_types', 'company_logo',
+            'business_address', 'business_phone', 'business_email',
+            'onboarding_completed'
+        ]
+        
+        for field in valid_fields:
+            if field in data:
+                update_fields.append(f"{field} = ?")
+                values.append(data[field])
+        
+        if not update_fields:
+            return False
+            
+        # Add user_id to values
+        values.append(user_id)
+        
+        # Execute update
+        cursor.execute(
+            f"""
+            UPDATE users 
+            SET {', '.join(update_fields)}
+            WHERE id = ?
+            """,
+            tuple(values)
+        )
+        
+        conn.commit()
+        return True
+        
+    except Exception as e:
+        print(f"Error updating user info: {str(e)}")
+        return False
+    finally:
+        cursor.close()
+        conn.close()
+
+def delete_user(user_id):
+    """Delete a user account and all associated data"""
+    if not user_id:
+        return False, "Invalid user ID"
+        
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Start transaction
+        cursor.execute("BEGIN")
+        
+        # Delete credit transactions
+        cursor.execute(
+            "DELETE FROM credit_transactions WHERE user_id = ?",
+            (user_id,)
+        )
+        
+        # Delete documents
+        cursor.execute(
+            "DELETE FROM documents WHERE user_id = ?",
+            (user_id,)
+        )
+        
+        # Delete industry profile if exists
+        cursor.execute(
+            "DELETE FROM industry_profiles WHERE user_id = ?",
+            (user_id,)
+        )
+        
+        # Finally, delete the user
+        cursor.execute(
+            "DELETE FROM users WHERE id = ?",
+            (user_id,)
+        )
+        
+        # Commit all changes
+        cursor.execute("COMMIT")
+        return True, "Account successfully deleted"
+        
+    except Exception as e:
+        cursor.execute("ROLLBACK")
+        return False, f"Error deleting account: {str(e)}"
+    finally:
+        cursor.close()
+        conn.close()
 
 def login_page():
     st.markdown("""
@@ -241,46 +572,12 @@ def login_page():
         submit = st.form_submit_button("Sign in")
         
         if submit and email and password:
-            # Check if user exists in database
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT id, email, subscription FROM users WHERE email = %s",
-                (email,)
-            )
-            user = cursor.fetchone()
-            
-            if not user:
-                # For demo, auto-create the user
-                user_id = str(uuid.uuid4())
-                cursor.execute(
-                    """
-                    INSERT INTO users (id, email, subscription, created_at) 
-                    VALUES (%s, %s, %s, %s)
-                    """,
-                    (user_id, email, "free", datetime.datetime.now())
-                )
-                conn.commit()
-                
-                # Set the user for the session
-                user = (user_id, email, "free")
-            
-            cursor.close()
-            conn.close()
-            
-            # Generate token and store in session
-            token = generate_jwt_token(user[0], user[1], user[2])
-            st.session_state['token'] = token
-            
-            # Set basic session data
-            st.session_state['user_id'] = user[0]
-            st.session_state['email'] = user[1]
-            st.session_state['subscription'] = user[2]
-            st.session_state['free_docs_used'] = 0
-            st.session_state['total_docs'] = 0
-            
-            st.success("Login successful!")
-            st.rerun()
+            success, message = login_user(email, password)
+            if success:
+                st.success(message)
+                st.rerun()
+            else:
+                st.error(message)
         elif submit:
             st.error("Please enter both email and password")
 
@@ -303,8 +600,3 @@ def login_page():
             Don't have an account? <a href="#" class="signup-link">Create a free account</a>
         </div>
     """, unsafe_allow_html=True)
-
-def logout():
-    """Log out the user by clearing the session state"""
-    for key in list(st.session_state.keys()):
-        del st.session_state[key]

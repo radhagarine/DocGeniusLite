@@ -183,132 +183,134 @@ PARAMETERS = [
 ]
 
 def generate(parameters):
-    """
-    Generate a Letter of Intent document based on the provided parameters
+    """Generate a letter of intent document"""
+    # Extract parameters
+    sender_name = parameters.get('sender_name', '')
+    sender_title = parameters.get('sender_title', '')
+    sender_company = parameters.get('sender_company', '')
+    sender_address = parameters.get('sender_address', '')
+    sender_phone = parameters.get('sender_phone', '')
+    sender_email = parameters.get('sender_email', '')
     
-    Args:
-        parameters: A dictionary containing all the parameter values
-        
-    Returns:
-        HTML content for the document
-    """
-    # Format date
-    letter_date = parameters.get("letter_date", "")
-    if isinstance(letter_date, str):
-        formatted_letter_date = letter_date
-    else:
-        formatted_letter_date = letter_date.strftime("%B %d, %Y") if letter_date else ""
+    recipient_name = parameters.get('recipient_name', '')
+    recipient_title = parameters.get('recipient_title', '')
+    recipient_company = parameters.get('recipient_company', '')
+    recipient_address = parameters.get('recipient_address', '')
     
-    # Get parameters with defaults
-    sender_name = parameters.get("sender_name", "[SENDER NAME]")
-    sender_address = parameters.get("sender_address", "[SENDER ADDRESS]")
-    recipient_name = parameters.get("recipient_name", "[RECIPIENT NAME]")
-    recipient_address = parameters.get("recipient_address", "[RECIPIENT ADDRESS]")
+    date = parameters.get('date', '')
+    subject = parameters.get('subject', '')
+    intent_type = parameters.get('intent_type', '')
     
-    subject = parameters.get("subject", "[SUBJECT]")
-    intent_type = parameters.get("intent_type", "Business Partnership")
-    
-    introduction = parameters.get("introduction", "This Letter of Intent (\"LOI\") sets forth the basic terms of a proposed transaction between the parties. While this LOI represents the understanding of the parties regarding the proposed transaction, it is not legally binding except as stated in the 'Binding Provisions' section.")
-    transaction_description = parameters.get("transaction_description", "[TRANSACTION DESCRIPTION]")
-    proposed_terms = parameters.get("proposed_terms", "[PROPOSED TERMS]")
-    timeline = parameters.get("timeline", "[TIMELINE]")
-    
-    confidentiality = parameters.get("confidentiality", "The parties agree to maintain the confidentiality of any information exchanged in connection with this LOI and the proposed transaction. This confidentiality provision shall be binding regardless of whether the parties proceed with the proposed transaction.")
-    exclusivity = parameters.get("exclusivity", "")
-    expenses = parameters.get("expenses", "Each party shall bear its own expenses related to this LOI and the proposed transaction, including but not limited to legal, accounting, and advisory fees.")
-    governing_law = parameters.get("governing_law", "[STATE/JURISDICTION]")
-    
-    closing_statement = parameters.get("closing_statement", "We look forward to working together toward a mutually beneficial relationship. If the terms outlined in this Letter of Intent are acceptable, please indicate your agreement by signing below.")
-    sender_signatory = parameters.get("sender_signatory", "[SENDER SIGNATORY]")
-    sender_title = parameters.get("sender_title", "[SENDER TITLE]")
-    recipient_signatory = parameters.get("recipient_signatory", "[RECIPIENT SIGNATORY]")
-    recipient_title = parameters.get("recipient_title", "[RECIPIENT TITLE]")
-    
-    # Generate the document content
+    introduction = parameters.get('introduction', '')
+    background = parameters.get('background', '')
+    intent_details = parameters.get('intent_details', '')
+    timeline = parameters.get('timeline', '')
+    terms_conditions = parameters.get('terms_conditions', '')
+    confidentiality = parameters.get('confidentiality', '')
+    conclusion = parameters.get('conclusion', '')
+
+    # Generate HTML document with dynamic styling
     document = f"""
-    <div style="font-family: Arial, sans-serif; margin: 1in;">
-        <div style="text-align: left; margin-bottom: 1in;">
-            <p>{formatted_letter_date}</p>
-            <p>{sender_name}<br>{sender_address.replace('\n', '<br>')}</p>
-            <br>
-            <p>{recipient_name}<br>{recipient_address.replace('\n', '<br>')}</p>
+    <div style="max-width: 800px; margin: 0 auto; font-family: Arial, sans-serif;">
+        <!-- Sender Information -->
+        <div style="text-align: left; margin-bottom: 30px;">
+            <p>{sender_name}<br>
+            {sender_title}<br>
+            {sender_company}<br>
+            {sender_address}<br>
+            {sender_phone}<br>
+            {sender_email}</p>
         </div>
         
-        <div style="text-align: center; margin-bottom: 1in;">
-            <h2>LETTER OF INTENT</h2>
-            <h3>Re: {subject}</h3>
+        <!-- Date -->
+        <div style="margin-bottom: 30px;">
+            <p>{date}</p>
         </div>
         
-        <div style="text-align: justify;">
-            <p>Dear {recipient_name.split()[0] if recipient_name.split() else recipient_name},</p>
-            
+        <!-- Recipient Information -->
+        <div style="margin-bottom: 30px;">
+            <p>{recipient_name}<br>
+            {recipient_title}<br>
+            {recipient_company}<br>
+            {recipient_address}</p>
+        </div>
+        
+        <!-- Subject -->
+        <div style="margin-bottom: 30px;">
+            <p><strong>Subject:</strong> {subject}</p>
+        </div>
+        
+        <!-- Salutation -->
+        <div style="margin-bottom: 30px;">
+            <p>Dear {recipient_name},</p>
+        </div>
+        
+        <!-- Introduction -->
+        <div style="margin-bottom: 20px;">
             <p>{introduction}</p>
-            
-            <h3>1. Parties</h3>
-            <p>This Letter of Intent is between {sender_name} (the "Sender") and {recipient_name} (the "Recipient"), collectively referred to as the "Parties".</p>
-            
-            <h3>2. Type of Transaction</h3>
-            <p>This Letter of Intent relates to a proposed {intent_type.lower()}.</p>
-            
-            <h3>3. Transaction Description</h3>
-            <p>{transaction_description}</p>
-            
-            <h3>4. Proposed Terms</h3>
-            <p>{proposed_terms}</p>
-            
-            <h3>5. Timeline</h3>
+        </div>
+        
+        <!-- Background -->
+        <div style="margin-bottom: 20px;">
+            <h3 style="color: var(--primary-color, #2E86C1);">Background</h3>
+            <p>{background}</p>
+        </div>
+        
+        <!-- Intent Details -->
+        <div style="margin-bottom: 20px;">
+            <h3 style="color: var(--primary-color, #2E86C1);">Intent Details</h3>
+            <p>{intent_details}</p>
+        </div>
+        
+        <!-- Timeline -->
+        <div style="margin-bottom: 20px;">
+            <h3 style="color: var(--primary-color, #2E86C1);">Proposed Timeline</h3>
             <p>{timeline}</p>
+        </div>
     """
     
-    # Add conditional sections
+    # Add terms and conditions if provided
+    if terms_conditions:
+        document += f"""
+        <div style="margin-bottom: 20px;">
+            <h3 style="color: var(--primary-color, #2E86C1);">Terms and Conditions</h3>
+            <p>{terms_conditions}</p>
+        </div>
+        """
+    
+    # Add confidentiality clause if provided
     if confidentiality:
         document += f"""
-            <h3>6. Confidentiality</h3>
+        <div style="margin-bottom: 20px;">
+            <h3 style="color: var(--primary-color, #2E86C1);">Confidentiality</h3>
             <p>{confidentiality}</p>
+        </div>
         """
     
-    if exclusivity:
-        document += f"""
-            <h3>7. Exclusivity</h3>
-            <p>{exclusivity}</p>
-        """
-    
-    if expenses:
-        document += f"""
-            <h3>8. Expenses</h3>
-            <p>{expenses}</p>
-        """
-    
+    # Add conclusion
     document += f"""
-            <h3>9. Binding Provisions</h3>
-            <p>The Parties acknowledge that this Letter of Intent is non-binding with respect to the transaction contemplated herein, except for the provisions relating to confidentiality, exclusivity (if applicable), expenses, and governing law, which shall be binding upon execution of this Letter of Intent.</p>
-            
-            <h3>10. Governing Law</h3>
-            <p>This Letter of Intent shall be governed by the laws of {governing_law}, without regard to its conflict of laws principles.</p>
-            
-            <p>{closing_statement}</p>
-            
+        <div style="margin-bottom: 30px;">
+            <p>{conclusion}</p>
+        </div>
+        
+        <!-- Closing -->
+        <div style="margin-top: 50px;">
             <p>Sincerely,</p>
-            
-            <div style="margin-top: 1in;">
-                <div style="float: left; width: 45%;">
-                    <p><strong>For {sender_name}:</strong></p>
-                    <p>________________________________</p>
-                    <p>{sender_signatory}, {sender_title}</p>
-                    <p>Date: ________________________</p>
-                </div>
-                
-                <div style="float: right; width: 45%;">
-                    <p><strong>AGREED AND ACCEPTED:</strong></p>
-                    <p><strong>For {recipient_name}:</strong></p>
-                    <p>________________________________</p>
-                    <p>{recipient_signatory}, {recipient_title}</p>
-                    <p>Date: ________________________</p>
-                </div>
-                <div style="clear: both;"></div>
+            <div style="margin-top: 30px;">
+                <p>____________________<br>
+                {sender_name}<br>
+                {sender_title}<br>
+                {sender_company}</p>
             </div>
         </div>
     </div>
+    
+    <style>
+    :root {{
+        --primary-color: #2E86C1;
+        --secondary-color: #2874A6;
+    }}
+    </style>
     """
     
     return document

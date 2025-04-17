@@ -1,15 +1,26 @@
 import streamlit as st
 import datetime
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from auth import check_authentication
 from db import get_user_documents
 from utils import get_document_display_name, display_rai_indicator, format_date
+from utils.sidebar import create_sidebar
 
 # Page configuration
 st.set_page_config(
     page_title="Document History - DocGenius Lite",
     page_icon="📄",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
+
+# Set current page for sidebar highlighting
+st.session_state['current_page'] = __file__
+
+# Create sidebar
+create_sidebar()
 
 # Check authentication
 if not check_authentication():

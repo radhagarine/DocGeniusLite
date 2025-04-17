@@ -249,147 +249,116 @@ PARAMETERS = [
 ]
 
 def generate(parameters):
-    """
-    Generate a Business Proposal document based on the provided parameters
+    """Generate a business proposal document"""
+    # Extract parameters
+    company_name = parameters.get('company_name', '')
+    company_address = parameters.get('company_address', '')
+    company_phone = parameters.get('company_phone', '')
+    company_email = parameters.get('company_email', '')
+    company_website = parameters.get('company_website', '')
     
-    Args:
-        parameters: A dictionary containing all the parameter values
-        
-    Returns:
-        HTML content for the document
-    """
-    # Format dates
-    proposal_date = parameters.get("proposal_date", "")
-    if isinstance(proposal_date, str):
-        formatted_proposal_date = proposal_date
-    else:
-        formatted_proposal_date = proposal_date.strftime("%B %d, %Y") if proposal_date else ""
+    client_name = parameters.get('client_name', '')
+    client_address = parameters.get('client_address', '')
+    client_contact_name = parameters.get('client_contact_name', '')
+    client_contact_title = parameters.get('client_contact_title', '')
+    client_email = parameters.get('client_email', '')
     
-    valid_until = parameters.get("valid_until", "")
-    if isinstance(valid_until, str):
-        formatted_valid_until = valid_until
-    else:
-        formatted_valid_until = valid_until.strftime("%B %d, %Y") if valid_until else ""
+    proposal_date = parameters.get('proposal_date', '')
+    proposal_id = parameters.get('proposal_id', '')
+    proposal_title = parameters.get('proposal_title', '')
+    valid_until = parameters.get('valid_until', '')
     
-    # Get parameters with defaults
-    company_name = parameters.get("company_name", "[COMPANY NAME]")
-    company_address = parameters.get("company_address", "[COMPANY ADDRESS]")
-    company_phone = parameters.get("company_phone", "[COMPANY PHONE]")
-    company_email = parameters.get("company_email", "[COMPANY EMAIL]")
-    company_website = parameters.get("company_website", "")
+    executive_summary = parameters.get('executive_summary', '')
+    problem_statement = parameters.get('problem_statement', '')
+    proposed_solution = parameters.get('proposed_solution', '')
+    solution_benefits = parameters.get('solution_benefits', '')
+    deliverables = parameters.get('deliverables', '')
     
-    client_name = parameters.get("client_name", "[CLIENT NAME]")
-    client_address = parameters.get("client_address", "[CLIENT ADDRESS]")
-    client_contact_name = parameters.get("client_contact_name", "[CONTACT NAME]")
-    client_contact_title = parameters.get("client_contact_title", "")
-    client_email = parameters.get("client_email", "[CLIENT EMAIL]")
+    pricing_structure = parameters.get('pricing_structure', '')
+    payment_terms = parameters.get('payment_terms', '')
+    total_price = parameters.get('total_price', '')
     
-    proposal_id = parameters.get("proposal_id", "")
-    proposal_title = parameters.get("proposal_title", "[PROPOSAL TITLE]")
-    
-    executive_summary = parameters.get("executive_summary", "[EXECUTIVE SUMMARY]")
-    problem_statement = parameters.get("problem_statement", "[PROBLEM STATEMENT]")
-    
-    proposed_solution = parameters.get("proposed_solution", "[PROPOSED SOLUTION]")
-    solution_benefits = parameters.get("solution_benefits", "[SOLUTION BENEFITS]")
-    deliverables = parameters.get("deliverables", "[DELIVERABLES]")
-    
-    pricing_structure = parameters.get("pricing_structure", "[PRICING STRUCTURE]")
-    payment_terms = parameters.get("payment_terms", "[PAYMENT TERMS]")
-    total_price = parameters.get("total_price", "[TOTAL PRICE]")
-    
-    timeline = parameters.get("timeline", "[TIMELINE]")
-    terms_conditions = parameters.get("terms_conditions", "")
-    
-    company_background = parameters.get("company_background", "")
-    experience = parameters.get("experience", "")
-    
-    conclusion = parameters.get("conclusion", "[CONCLUSION]")
-    
-    # Generate the document content
+    timeline = parameters.get('timeline', '')
+    terms_conditions = parameters.get('terms_conditions', '')
+    company_background = parameters.get('company_background', '')
+    experience = parameters.get('experience', '')
+    conclusion = parameters.get('conclusion', '')
+
+    # Generate HTML document with dynamic styling support
     document = f"""
-    <div style="font-family: Arial, sans-serif; color: #333;">
+    <div style="max-width: 800px; margin: 0 auto; font-family: Arial, sans-serif;">
         <!-- Header -->
         <div style="text-align: center; margin-bottom: 40px;">
-            <h1 style="color: #2E86C1; margin-bottom: 5px;">{proposal_title}</h1>
-            <h3 style="color: #666; font-weight: normal; margin-top: 0;">Business Proposal</h3>
-            {f'<p>Proposal ID: {proposal_id}</p>' if proposal_id else ''}
-            <p>Prepared for: {client_name}</p>
-            <p>Prepared by: {company_name}</p>
-            <p>Date: {formatted_proposal_date}</p>
-            <p>Valid until: {formatted_valid_until}</p>
+            <h1 style="color: var(--primary-color, #2E86C1); margin-bottom: 10px;">{proposal_title}</h1>
+            <p style="font-size: 1.1em;">Prepared for {client_name}</p>
+            <p>Proposal #{proposal_id} | {proposal_date}</p>
         </div>
         
-        <!-- Company and Client Information -->
-        <div style="display: flex; justify-content: space-between; margin-bottom: 30px;">
-            <div style="width: 48%;">
-                <h3 style="color: #2E86C1; border-bottom: 1px solid #ddd; padding-bottom: 5px;">From</h3>
-                <p><strong>{company_name}</strong></p>
-                <p>{company_address.replace('\n', '<br>')}</p>
-                <p>Phone: {company_phone}</p>
-                <p>Email: {company_email}</p>
-                {f'<p>Website: {company_website}</p>' if company_website else ''}
+        <!-- Company Information -->
+        <div style="display: flex; justify-content: space-between; margin-bottom: 40px;">
+            <div>
+                <strong>{company_name}</strong><br>
+                {company_address}<br>
+                {company_phone}<br>
+                {company_email}
+                {f'<br>{company_website}' if company_website else ''}
             </div>
-            
-            <div style="width: 48%;">
-                <h3 style="color: #2E86C1; border-bottom: 1px solid #ddd; padding-bottom: 5px;">To</h3>
-                <p><strong>{client_name}</strong></p>
-                <p>{client_address.replace('\n', '<br>')}</p>
-                <p>Attention: {client_contact_name}{f', {client_contact_title}' if client_contact_title else ''}</p>
-                <p>Email: {client_email}</p>
+            <div style="text-align: right;">
+                <strong>{client_name}</strong><br>
+                {client_address}<br>
+                {client_contact_name}
+                {f'<br>{client_contact_title}' if client_contact_title else ''}<br>
+                {client_email}
             </div>
         </div>
         
         <!-- Executive Summary -->
         <div style="margin-bottom: 30px;">
-            <h2 style="color: #2E86C1; border-bottom: 2px solid #2E86C1; padding-bottom: 5px;">Executive Summary</h2>
+            <h2 style="color: var(--primary-color, #2E86C1); border-bottom: 2px solid var(--primary-color, #2E86C1); padding-bottom: 5px;">Executive Summary</h2>
             <p>{executive_summary}</p>
         </div>
         
         <!-- Problem Statement -->
         <div style="margin-bottom: 30px;">
-            <h2 style="color: #2E86C1; border-bottom: 2px solid #2E86C1; padding-bottom: 5px;">Problem Statement</h2>
+            <h2 style="color: var(--primary-color, #2E86C1); border-bottom: 2px solid var(--primary-color, #2E86C1); padding-bottom: 5px;">Problem Statement</h2>
             <p>{problem_statement}</p>
         </div>
         
         <!-- Proposed Solution -->
         <div style="margin-bottom: 30px;">
-            <h2 style="color: #2E86C1; border-bottom: 2px solid #2E86C1; padding-bottom: 5px;">Proposed Solution</h2>
+            <h2 style="color: var(--primary-color, #2E86C1); border-bottom: 2px solid var(--primary-color, #2E86C1); padding-bottom: 5px;">Our Solution</h2>
             <p>{proposed_solution}</p>
             
-            <h3 style="color: #2E86C1; margin-top: 20px;">Key Benefits</h3>
+            <h3 style="color: var(--primary-color, #2E86C1); margin-top: 20px;">Key Benefits</h3>
             <p>{solution_benefits}</p>
             
-            <h3 style="color: #2E86C1; margin-top: 20px;">Deliverables</h3>
+            <h3 style="color: var(--primary-color, #2E86C1); margin-top: 20px;">Deliverables</h3>
             <p>{deliverables}</p>
         </div>
         
         <!-- Pricing -->
         <div style="margin-bottom: 30px;">
-            <h2 style="color: #2E86C1; border-bottom: 2px solid #2E86C1; padding-bottom: 5px;">Pricing</h2>
-            <p>{pricing_structure}</p>
-            
-            <h3 style="color: #2E86C1; margin-top: 20px;">Payment Terms</h3>
-            <p>{payment_terms}</p>
-            
-            <div style="background-color: #f8f9fa; padding: 15px; border-left: 5px solid #2E86C1; margin-top: 20px;">
-                <h3 style="margin-top: 0; color: #2E86C1;">Total Investment: {total_price}</h3>
+            <h2 style="color: var(--primary-color, #2E86C1); border-bottom: 2px solid var(--primary-color, #2E86C1); padding-bottom: 5px;">Investment</h2>
+            <div style="background: rgba(46, 134, 193, 0.1); padding: 20px; border-radius: 5px; margin-top: 20px;">
+                <h3 style="color: var(--primary-color, #2E86C1); margin-top: 0;">Total Investment: {total_price}</h3>
+                <p><strong>Pricing Structure:</strong><br>{pricing_structure}</p>
+                <p><strong>Payment Terms:</strong><br>{payment_terms}</p>
             </div>
         </div>
         
         <!-- Timeline -->
         <div style="margin-bottom: 30px;">
-            <h2 style="color: #2E86C1; border-bottom: 2px solid #2E86C1; padding-bottom: 5px;">Project Timeline</h2>
+            <h2 style="color: var(--primary-color, #2E86C1); border-bottom: 2px solid var(--primary-color, #2E86C1); padding-bottom: 5px;">Project Timeline</h2>
             <p>{timeline}</p>
+            <p><strong>Valid Until:</strong> {valid_until}</p>
         </div>
     """
     
-    # Add optional sections if provided
     if terms_conditions:
         document += f"""
         <!-- Terms and Conditions -->
         <div style="margin-bottom: 30px;">
-            <h2 style="color: #2E86C1; border-bottom: 2px solid #2E86C1; padding-bottom: 5px;">Terms and Conditions</h2>
+            <h2 style="color: var(--primary-color, #2E86C1); border-bottom: 2px solid var(--primary-color, #2E86C1); padding-bottom: 5px;">Terms and Conditions</h2>
             <p>{terms_conditions}</p>
         </div>
         """
@@ -398,18 +367,18 @@ def generate(parameters):
         document += f"""
         <!-- About Us -->
         <div style="margin-bottom: 30px;">
-            <h2 style="color: #2E86C1; border-bottom: 2px solid #2E86C1; padding-bottom: 5px;">About {company_name}</h2>
+            <h2 style="color: var(--primary-color, #2E86C1); border-bottom: 2px solid var(--primary-color, #2E86C1); padding-bottom: 5px;">About {company_name}</h2>
         """
         
         if company_background:
             document += f"""
-            <h3 style="color: #2E86C1; margin-top: 20px;">Company Background</h3>
+            <h3 style="color: var(--primary-color, #2E86C1); margin-top: 20px;">Company Background</h3>
             <p>{company_background}</p>
             """
         
         if experience:
             document += f"""
-            <h3 style="color: #2E86C1; margin-top: 20px;">Relevant Experience</h3>
+            <h3 style="color: var(--primary-color, #2E86C1); margin-top: 20px;">Relevant Experience</h3>
             <p>{experience}</p>
             """
         
@@ -417,32 +386,31 @@ def generate(parameters):
         </div>
         """
     
-    # Conclusion
+    # Add conclusion
     document += f"""
         <!-- Conclusion -->
         <div style="margin-bottom: 30px;">
-            <h2 style="color: #2E86C1; border-bottom: 2px solid #2E86C1; padding-bottom: 5px;">Conclusion</h2>
+            <h2 style="color: var(--primary-color, #2E86C1); border-bottom: 2px solid var(--primary-color, #2E86C1); padding-bottom: 5px;">Next Steps</h2>
             <p>{conclusion}</p>
         </div>
-        
-        <!-- Signature -->
-        <div style="margin-top: 50px; display: flex; justify-content: space-between;">
-            <div style="width: 45%;">
-                <p style="border-top: 1px solid #333; padding-top: 10px;">Authorized Signature for {company_name}</p>
-                <p>Date: _______________</p>
-            </div>
-            
-            <div style="width: 45%;">
-                <p style="border-top: 1px solid #333; padding-top: 10px;">Accepted by {client_name}</p>
-                <p>Date: _______________</p>
-            </div>
-        </div>
-        
+    """
+    
+    # Add footer
+    document += f"""
         <!-- Footer -->
-        <div style="margin-top: 50px; text-align: center; font-size: 0.8em; color: #666;">
-            <p>© {company_name} | {company_phone} | {company_email}</p>
+        <div style="text-align: center; margin-top: 50px; padding-top: 20px; border-top: 1px solid #ccc; color: #666;">
+            <p>For questions about this proposal, please contact:</p>
+            <p><strong>{company_name}</strong><br>
+            {company_email} | {company_phone}</p>
         </div>
     </div>
+    
+    <style>
+    :root {{
+        --primary-color: #2E86C1;
+        --secondary-color: #2874A6;
+    }}
+    </style>
     """
     
     return document
